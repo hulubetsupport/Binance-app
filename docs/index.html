@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="am">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>EthioP2P USDT Marketplace · የቴሌግራም P2P ገበያ</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Noto+Sans+Ethiopic:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --primary: #0f172a;
+        --emerald: #059669;
+        --amber: #d97706;
+        --rose: #e11d48;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'Plus Jakarta Sans', 'Noto Sans Ethiopic', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding-bottom: 76px;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.96);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .container { max-width: 720px; margin: 0 auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+      .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+      .btn-emerald { background: var(--emerald); color: #fff; border-color: var(--emerald); }
+      .btn-amber { background: var(--amber); color: #fff; border-color: var(--amber); }
+      .btn-rose { background: var(--rose); color: #fff; border-color: var(--rose); }
+      input, select {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        background: #fff;
+      }
+      label { display: block; font-size: 11px; font-weight: 600; color: #334155; margin-bottom: 4px; }
+      .alert-err { background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; padding: 10px; border-radius: 10px; font-size: 12px; }
+      .alert-ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 10px; border-radius: 10px; font-size: 12px; }
+      .alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 10px; border-radius: 10px; font-size: 12px; }
+      .nav-bottom {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: #fff;
+        border-top: 1px solid var(--border);
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        z-index: 30;
+      }
+      .nav-btn {
+        border: none; background: transparent; padding: 10px 4px;
+        font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer;
+      }
+      .nav-btn.active { color: var(--emerald); }
+      .muted { color: var(--muted); font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #f1f5f9; }
+      th { color: var(--muted); font-weight: 600; }
+      .hidden { display: none !important; }
+      .modal-backdrop {
+        position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
+        display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+      }
+      .modal-card { background: #fff; border-radius: 14px; padding: 16px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; }
+      .priv-img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div style="font-weight: 700; font-size: 14px;">EthioP2P · USDT/ETB</div>
+        <div id="hdrRate" class="muted mono" style="font-size: 11px;">Connecting...</div>
+      </div>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <button id="btnServerCfg" class="btn" type="button">API URL</button>
+        <button id="btnRefresh" class="btn" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <div id="devBar" class="hidden" style="background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 6px 14px; font-size: 12px;">
+      <div class="row" style="max-width: 720px; margin: 0 auto;">
+        <strong>Dev Preview User:</strong>
+        <select id="devUserSelect" style="width: auto; padding: 4px 8px; font-size: 12px;"></select>
+      </div>
+    </div>
+
+    <main class="container">
+      <div id="msgBox" class="hidden"></div>
+      <div id="viewRoot"></div>
+    </main>
+
+    <nav class="nav-bottom">
+      <button class="nav-btn active" data-tab="home" type="button">Home<br/>መነሻ</button>
+      <button class="nav-btn" data-tab="p2p" type="button">P2P<br/>ገበያ</button>
+      <button class="nav-btn" data-tab="wallets" type="button">Wallets<br/>ቦርሳ</button>
+      <button class="nav-btn" data-tab="orders" type="button">Orders<br/>ትዕዛዝ</button>
+      <button class="nav-btn" data-tab="profile" type="button">Profile<br/>መገለጫ</button>
+    </nav>
+
+    <!-- Server URL Modal -->
+    <div id="serverModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="row" style="margin-bottom: 8px;">
+          <strong style="font-size: 14px;">Backend Server URL (Render / Alet Cloud)</strong>
+          <button id="closeServerModal" class="btn" type="button">Close</button>
+        </div>
+        <p class="muted" style="margin-top: 0;">Enter your deployed backend URL (e.g. https://ethiop2p-api.onrender.com) or leave empty for same-origin.</p>
+        <input id="apiUrlInput" type="url" placeholder="https://your-backend.onrender.com" />
+        <div style="margin-top: 10px; text-align: right;">
+          <button id="saveServerUrl" class="btn btn-primary" type="button">Save & Reload</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade Modal -->
+    <div id="tradeModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="row" style="margin-bottom: 8px;">
+          <strong id="tradeTitle" style="font-size: 14px;">Trade USDT</strong>
+          <button id="closeTradeModal" class="btn" type="button">Close</button>
+        </div>
+        <div id="tradeBody" style="display: flex; flex-direction: column; gap: 10px;"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      import P2PCalc from './calc.js';
+
+      // Default Render/Alet Cloud API URL can be passed via ?api=https://... or saved in localStorage
+      const STORAGE_API = 'ethiop2p_gh_api_base';
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('api')) {
+        localStorage.setItem(STORAGE_API, urlParams.get('api').replace(/\/$/, ''));
+      }
+
+      const state = {
+        apiBase: localStorage.getItem(STORAGE_API) || '',
+        initData: window.Telegram?.WebApp?.initData || '',
+        tab: 'home',
+        p2pDir: 'SELL',
+        paymentFilter: 'ALL',
+        config: null,
+        me: null,
+        dailyLimit: null,
+        latestKyc: null,
+        ads: [],
+        myAds: [],
+        orders: [],
+        selectedOrderId: null,
+        ledger: [],
+        deposits: [],
+        serverOffsetMs: 0,
+        showPostAd: false,
+        tradeAd: null,
+      };
+
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      }
+
+      const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+      function showMsg(text, isErr = false) {
+        const box = document.getElementById('msgBox');
+        if (!text) { box.className = 'hidden'; return; }
+        box.className = isErr ? 'alert-err' : 'alert-ok';
+        box.textContent = text;
+      }
+
+      async function api(path, opts = {}) {
+        const headers = {};
+        if (state.initData) headers['X-Telegram-Init-Data'] = state.initData;
+        let body;
+        if (opts.body !== undefined) {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify(opts.body);
+        }
+        const resp = await fetch(`${state.apiBase}${path}`, { method: opts.method || 'GET', headers, body });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+        return json;
+      }
+
+      function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result || ''));
+          r.onerror = () => reject(new Error('File read error'));
+          r.readAsDataURL(file);
+        });
+      }
+
+      async function hydratePrivateImages() {
+        const imgs = document.querySelectorAll('img[data-priv-file]');
+        for (const img of imgs) {
+          const fid = img.getAttribute('data-priv-file');
+          if (!fid || img.dataset.loaded) continue;
+          img.dataset.loaded = '1';
+          try {
+            const resp = await fetch(`${state.apiBase}/api/files/${encodeURIComponent(fid)}`, {
+              headers: { 'X-Telegram-Init-Data': state.initData },
+            });
+            if (resp.ok) {
+              const blob = await resp.blob();
+              img.src = URL.createObjectURL(blob);
+            }
+          } catch {}
+        }
+      }
+
+      async function bootAndRefresh() {
+        showMsg('');
+        try {
+          state.config = await api('/api/config');
+          document.getElementById('hdrRate').textContent = `1 USDT ≈ ${state.config.referenceRateEtb} ETB · Fee ${state.config.commissionPercent}%`;
+          if (state.config.serverTime) {
+            state.serverOffsetMs = new Date(state.config.serverTime).getTime() - Date.now();
+          }
+
+          if (!state.initData && state.config.devPreviewEnabled) {
+            const prev = await api('/api/dev/preview-users');
+            const sel = document.getElementById('devUserSelect');
+            sel.innerHTML = prev.users.map((u) => `<option value="${esc(u.telegram_id)}">${esc(u.first_name)} (${esc(u.telegram_id)}) - ${esc(u.kyc_status)}</option>`).join('');
+            const savedTg = localStorage.getItem('ethiop2p_gh_dev_tg') || '200002';
+            sel.value = savedTg;
+            document.getElementById('devBar').classList.remove('hidden');
+            const minted = await api('/api/dev/mint-init-data', { method: 'POST', body: { telegramId: sel.value } });
+            state.initData = minted.initData;
+          }
+
+          if (!state.initData) {
+            document.getElementById('viewRoot').innerHTML = `<div class="alert-warn">Open this Mini App inside Telegram to authenticate securely with Telegram initData.</div>`;
+            return;
+          }
+
+          const [meRes, adsRes, myAdsRes, ordRes, walRes] = await Promise.all([
+            api('/api/me'),
+            api(`/api/ads?direction=${state.p2pDir}&paymentMethod=${encodeURIComponent(state.paymentFilter)}`),
+            api('/api/ads/mine'),
+            api('/api/orders'),
+            api('/api/wallet/ledger'),
+          ]);
+
+          state.me = meRes.user;
+          state.dailyLimit = meRes.dailyLimit;
+          state.latestKyc = meRes.latestKyc;
+          state.ads = adsRes.ads || [];
+          state.myAds = myAdsRes.ads || [];
+          state.orders = ordRes.orders || [];
+          if (state.orders.length > 0 && !state.selectedOrderId) state.selectedOrderId = state.orders[0].id;
+          state.ledger = walRes.ledger || [];
+          state.deposits = walRes.deposits || [];
+          render();
+        } catch (err) {
+          showMsg(err.message || 'Connection error', true);
+        }
+      }
+
+      function render() {
+        const root = document.getElementById('viewRoot');
+        const me = state.me;
+        if (!me) return;
+
+        if (state.tab === 'home') {
+          const totalMicro = BigInt(me.availableMicroUsdt) + BigInt(me.lockedMicroUsdt);
+          const etbSantim = state.config ? P2PCalc.calculateEtbTotalSantim(totalMicro, BigInt(state.config.referenceRateSantim)) : 0n;
+          root.innerHTML = `
+            <div class="card">
+              <div class="row">
+                <div>
+                  <div class="muted">Available Balance · ዝግጁ ቀሪ ሂሳብ</div>
+                  <div class="mono" style="font-size: 26px; font-weight: 700; margin-top: 4px;">${esc(me.availableUsdt)} USDT</div>
+                  <div class="muted mono" style="margin-top: 2px;">Locked: ${esc(me.lockedUsdt)} USDT · ≈ ${esc(P2PCalc.formatSantim(etbSantim))} ETB</div>
+                </div>
+                <div style="text-align: right;">
+                  <div class="muted">KYC</div>
+                  <strong style="font-size: 12px;">${esc(me.kycStatus)}</strong>
+                </div>
+              </div>
+              <div class="grid2" style="margin-top: 12px;">
+                <button class="btn btn-primary" id="goP2P" type="button">Trade P2P · P2P ግብይት</button>
+                <button class="btn" id="goWallet" type="button">Deposit USDT · አስገባ</button>
+              </div>
+            </div>
+            ${me.kycStatus !== 'APPROVED' ? `<div class="alert-warn">KYC Status: <strong>${esc(me.kycStatus)}</strong>. Verify phone via bot /start and submit KYC in Profile tab to trade.</div>` : ''}
+            ${state.dailyLimit ? `<div class="card"><div class="row" style="font-size: 12px;"><strong>Daily Limit (የዕለት ገደብ)</strong><span class="mono">${esc(state.dailyLimit.usedUsdt)} / ${esc(state.dailyLimit.limitUsdt)} USDT</span></div></div>` : ''}
+            <div class="card">
+              <strong style="font-size: 13px;">Recent Orders · የቅርብ ጊዜ ትዕዛዞች</strong>
+              <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                ${state.orders.length === 0 ? '<span class="muted">No orders yet.</span>' : state.orders.slice(0, 4).map((o) => `
+                  <div class="row" style="border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                    <div><strong class="mono" style="font-size: 12px;">${esc(o.orderCode)}</strong><div class="muted">${esc(o.grossUsdt)} USDT · ${esc(o.etbTotal)} ETB</div></div>
+                    <button class="btn" data-open-order="${o.id}" type="button">${esc(o.status)}</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+          document.getElementById('goP2P').onclick = () => switchTab('p2p');
+          document.getElementById('goWallet').onclick = () => switchTab('wallets');
+          root.querySelectorAll('[data-open-order]').forEach((b) => {
+            b.onclick = () => { state.selectedOrderId = Number(b.dataset.openOrder); switchTab('orders'); };
+          });
+          return;
+        }
+
+        if (state.tab === 'p2p') {
+          const bounds = state.config?.priceGuardBounds;
+          root.innerHTML = `
+            <div class="row">
+              <div style="display: flex; gap: 6px;">
+                <button id="dirSellBtn" class="btn ${state.p2pDir === 'SELL' ? 'btn-amber' : ''}" type="button">SELL Ads (ሽያጭ)</button>
+                <button id="dirBuyBtn" class="btn ${state.p2pDir === 'BUY' ? 'btn-emerald' : ''}" type="button">BUY Ads (ግዢ)</button>
+              </div>
+              <button id="togglePostAd" class="btn btn-primary" type="button">+ Post Ad</button>
+            </div>
+
+            ${state.showPostAd ? `
+              <form id="postAdForm" class="card" style="display: flex; flex-direction: column; gap: 10px;">
+                <strong style="font-size: 13px;">Post Ad (±10% Guard: ${esc(bounds?.minEtb)} – ${esc(bounds?.maxEtb)} ETB)</strong>
+                <div class="grid2">
+                  <div><label>Direction</label><select id="paDir"><option value="SELL" ${state.p2pDir === 'SELL' ? 'selected' : ''}>SELL USDT</option><option value="BUY" ${state.p2pDir === 'BUY' ? 'selected' : ''}>BUY USDT</option></select></div>
+                  <div><label>USDT Amount</label><input id="paAmt" value="100" /></div>
+                  <div><label>Price ETB/USDT</label><input id="paPrice" value="${esc(state.config?.referenceRateEtb || '155.00')}" /></div>
+                  <div><label>Payment Methods</label><input id="paMethods" value="Telebirr,CBE" /></div>
+                  <div><label>Min USDT</label><input id="paMin" value="10" /></div>
+                  <div><label>Max USDT</label><input id="paMax" value="100" /></div>
+                </div>
+                <div><label>Payment Details</label><input id="paDetails" placeholder="Telebirr 0911..." /></div>
+                <div id="paPreview" class="card mono" style="background: #f8fafc; font-size: 12px;"></div>
+                <button class="btn btn-primary" type="submit">Publish Ad</button>
+              </form>
+            ` : ''}
+
+            ${state.ads.length === 0 ? `<div class="card muted" style="text-align: center;">No active ${esc(state.p2pDir)} ads.</div>` : state.ads.map((a) => `
+              <div class="card">
+                <div class="row">
+                  <div>
+                    <strong style="font-size: 13px;">${esc(a.creatorName)}</strong>
+                    <span class="mono" style="font-size: 11px; font-weight: 700; color: ${a.direction === 'SELL' ? '#b45309' : '#047857'}; margin-left: 6px;">${esc(a.direction)}</span>
+                    <div class="muted mono" style="margin-top: 2px;">Avail: ${esc(a.remainingUsdt)} USDT · ${esc(a.minOrderUsdt)}–${esc(a.maxOrderUsdt)}</div>
+                  </div>
+                  <div class="mono" style="font-size: 17px; font-weight: 700;">${esc(a.priceEtb)} ETB</div>
+                </div>
+                <div class="row" style="margin-top: 10px; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                  <span class="muted">${esc(a.paymentMethods.join(' · '))}</span>
+                  ${a.userId === me.id
+                    ? `<button class="btn btn-rose" data-cancel-ad="${a.id}" type="button">Cancel Ad</button>`
+                    : `<button class="btn ${a.direction === 'SELL' ? 'btn-emerald' : 'btn-amber'}" data-take-ad="${a.id}" type="button">${a.direction === 'SELL' ? 'Buy USDT' : 'Sell USDT'}</button>`}
+                </div>
+              </div>
+            `).join('')}
+          `;
+          document.getElementById('dirSellBtn').onclick = () => { state.p2pDir = 'SELL'; bootAndRefresh(); };
+          document.getElementById('dirBuyBtn').onclick = () => { state.p2pDir = 'BUY'; bootAndRefresh(); };
+          document.getElementById('togglePostAd').onclick = () => { state.showPostAd = !state.showPostAd; render(); };
+
+          if (state.showPostAd) {
+            const updatePaPreview = () => {
+              const box = document.getElementById('paPreview');
+              try {
+                const c = P2PCalc.calculateOrder({
+                  usdtInput: document.getElementById('paAmt').value,
+                  priceEtbInput: document.getElementById('paPrice').value,
+                  commissionPercent: state.config?.commissionPercent ?? 3,
+                });
+                box.textContent = `Gross: ${c.grossUsdt} USDT | Fee (${c.commissionPercent}%): ${c.feeUsdt} USDT | Net: ${c.netUsdt} USDT | Total: ${c.etbTotal} ETB`;
+              } catch { box.textContent = 'Enter valid USDT & price'; }
+            };
+            document.getElementById('paAmt').oninput = updatePaPreview;
+            document.getElementById('paPrice').oninput = updatePaPreview;
+            updatePaPreview();
+            document.getElementById('postAdForm').onsubmit = async (ev) => {
+              ev.preventDefault();
+              try {
+                await api('/api/ads', {
+                  method: 'POST',
+                  body: {
+                    direction: document.getElementById('paDir').value,
+                    usdtAmount: document.getElementById('paAmt').value,
+                    priceEtb: document.getElementById('paPrice').value,
+                    minOrderUsdt: document.getElementById('paMin').value,
+                    maxOrderUsdt: document.getElementById('paMax').value,
+                    paymentMethods: document.getElementById('paMethods').value.split(',').map((s) => s.trim()).filter(Boolean),
+                    paymentDetails: document.getElementById('paDetails').value,
+                  },
+                });
+                state.showPostAd = false;
+                state.p2pDir = document.getElementById('paDir').value;
+                showMsg('Ad published!');
+                await bootAndRefresh();
+              } catch (err) { showMsg(err.message, true); }
+            };
+          }
+
+          root.querySelectorAll('[data-cancel-ad]').forEach((b) => {
+            b.onclick = async () => {
+              try {
+                await api(`/api/ads/${b.dataset.cancelAd}/cancel`, { method: 'POST' });
+                showMsg('Ad cancelled and escrow unlocked.');
+                await bootAndRefresh();
+              } catch (err) { showMsg(err.message, true); }
+            };
+          });
+          root.querySelectorAll('[data-take-ad]').forEach((b) => {
+            b.onclick = () => openTradeModal(state.ads.find((x) => x.id === Number(b.dataset.takeAd)));
+          });
+          return;
+        }
+
+        if (state.tab === 'wallets') {
+          root.innerHTML = `
+            <div class="alert-err">
+              <strong>Wrong-Network Warning · የተሳሳተ ኔትወርክ ማስጠንቀቂያ</strong><br/>
+              Send ONLY USDT on your chosen network (TRC20 or BEP20). Wrong network transfers cause permanent loss. Always send the exact unique 4-decimal amount!
+            </div>
+            <form id="depForm" class="card" style="display: flex; flex-direction: column; gap: 10px;">
+              <strong style="font-size: 13px;">Generate Unique Deposit Amount (TRC20 / BEP20)</strong>
+              <div class="grid2">
+                <div><label>Network</label><select id="depNet"><option value="TRC20">TRC20 (TRON)</option><option value="BEP20">BEP20 (BSC)</option></select></div>
+                <div><label>USDT Amount</label><input id="depAmt" value="100" /></div>
+              </div>
+              <div id="depAddrBox" class="card mono" style="background: #f8fafc; font-size: 11px; word-break: break-all;"></div>
+              <button class="btn btn-emerald" type="submit">Create Unique Deposit Intent</button>
+            </form>
+            <div class="card">
+              <strong style="font-size: 13px;">Deposit Intents</strong>
+              <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                ${state.deposits.length === 0 ? '<span class="muted">No deposit intents yet.</span>' : state.deposits.map((d) => `
+                  <div style="border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px;">
+                    <div class="row"><strong class="mono">${esc(d.intent_code)} (${esc(d.network)})</strong><strong>${esc(d.status)}</strong></div>
+                    <div class="mono" style="margin-top: 4px;">Exact: <strong>${esc(d.uniqueUsdt)} USDT</strong></div>
+                    <div class="muted mono" style="font-size: 11px; word-break: break-all;">${esc(d.deposit_address)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="card">
+              <strong style="font-size: 13px;">Escrow Ledger (Append-Only)</strong>
+              <table>
+                <thead><tr><th>Reason</th><th>Avail Δ</th><th>Locked Δ</th></tr></thead>
+                <tbody>
+                  ${state.ledger.length === 0 ? '<tr><td colspan="3" class="muted">No ledger entries.</td></tr>' : state.ledger.map((l) => `
+                    <tr><td class="mono">${esc(l.reason)}</td><td class="mono">${esc(l.availableDeltaSign + l.availableDeltaUsdt)}</td><td class="mono">${esc(l.lockedDeltaSign + l.lockedDeltaUsdt)}</td></tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+          const syncAddr = () => {
+            const net = document.getElementById('depNet').value;
+            document.getElementById('depAddrBox').textContent = `${net} Address: ${state.config?.depositAddresses?.[net] || ''}`;
+          };
+          document.getElementById('depNet').onchange = syncAddr;
+          syncAddr();
+          document.getElementById('depForm').onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+              const res = await api('/api/deposits/intent', {
+                method: 'POST',
+                body: { network: document.getElementById('depNet').value, usdtAmount: document.getElementById('depAmt').value },
+              });
+              showMsg(`Send exact ${res.intent.uniqueUsdt} USDT (${res.intent.network})`);
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+          return;
+        }
+
+        if (state.tab === 'orders') {
+          const ord = state.orders.find((o) => o.id === state.selectedOrderId) || state.orders[0];
+          if (!ord) {
+            root.innerHTML = `<div class="card muted" style="text-align: center;">No orders yet. Go to P2P to create one.</div>`;
+            return;
+          }
+          const isBuyer = ord.buyerUserId === me.id;
+          root.innerHTML = `
+            <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
+              ${state.orders.map((o) => `<button class="btn mono ${o.id === ord.id ? 'btn-primary' : ''}" data-sel-ord="${o.id}" type="button">${esc(o.orderCode)} (${esc(o.status)})</button>`).join('')}
+            </div>
+            <div class="card" style="display: flex; flex-direction: column; gap: 10px;">
+              <div class="row">
+                <div><strong class="mono">${esc(ord.orderCode)}</strong><div class="muted">${isBuyer ? 'You are BUYER' : 'You are SELLER'} · ${esc(ord.paymentMethod)}</div></div>
+                <div style="text-align: right;"><strong>${esc(ord.status)}</strong><div id="ordTimer" class="mono" style="font-size: 13px; color: #b45309; font-weight: 700;"></div></div>
+              </div>
+              <div class="grid2 card" style="background: #f8fafc; font-size: 12px;">
+                <div>Gross: <strong class="mono">${esc(ord.grossUsdt)} USDT</strong></div>
+                <div>Fee (${esc(ord.commissionPercent)}%): <strong class="mono">${esc(ord.feeUsdt)} USDT</strong></div>
+                <div>Net Payout: <strong class="mono" style="color: #047857;">${esc(ord.netUsdt)} USDT</strong></div>
+                <div>ETB Total: <strong class="mono">${esc(ord.etbTotal)} ETB</strong></div>
+              </div>
+              <div class="muted">Payment details: <span class="mono">${esc(ord.paymentDetails || 'N/A')}</span></div>
+              ${ord.payoutAccountId ? `<div class="muted">Receiver Payout: <strong>${esc(ord.payoutProvider)}</strong> <span class="mono">${esc(ord.payoutAccountId)}</span> (${esc(ord.payoutAccountName)})</div>` : ''}
+
+              ${ord.status === 'CREATED' && isBuyer ? `
+                <form id="payoutDetailsForm" class="card" style="background: #fffbeb; display: flex; flex-direction: column; gap: 8px;">
+                  <strong style="font-size: 12px;">Step 1: Receiver Binance Pay / Bybit UID (Matches KYC)</strong>
+                  <select id="poProv"><option value="BINANCE_PAY">Binance Pay ID</option><option value="BYBIT_UID">Bybit UID</option></select>
+                  <input id="poId" required placeholder="Binance Pay ID or Bybit UID" />
+                  <input id="poName" required placeholder="Full Name matching KYC" />
+                  <input id="poFile" type="file" required accept="image/png,image/jpeg,image/webp" />
+                  <button class="btn btn-primary" type="submit">Save Payout Account</button>
+                </form>
+              ` : ''}
+
+              ${ord.status === 'AWAITING_PAYMENT' && isBuyer ? `
+                <form id="markPaidForm" class="card" style="background: #ecfdf5; display: flex; flex-direction: column; gap: 8px;">
+                  <strong style="font-size: 12px;">Step 2: Send ${esc(ord.etbTotal)} ETB & Upload Proof</strong>
+                  <input id="mpRef" required placeholder="Transaction Reference" />
+                  <input id="mpFile" type="file" required accept="image/png,image/jpeg,image/webp" />
+                  <button class="btn btn-emerald" type="submit">Mark as Paid · ተከፍሏል</button>
+                </form>
+              ` : ''}
+
+              ${ord.paymentProofFileId ? `<div><label>ETB Payment Proof</label><img class="priv-img" data-priv-file="${esc(ord.paymentProofFileId)}" alt="Payment proof" /></div>` : ''}
+              ${ord.payoutProofFileId ? `<div><label>Admin Payout Proof (${esc(ord.payoutRef)})</label><img class="priv-img" data-priv-file="${esc(ord.payoutProofFileId)}" alt="Payout proof" /></div>` : ''}
+
+              <div class="row" style="gap: 8px;">
+                ${(ord.status === 'CREATED' || ord.status === 'AWAITING_PAYMENT') ? `<button id="btnCancelOrd" class="btn" type="button">Cancel Order</button>` : ''}
+                ${(ord.status === 'AWAITING_PAYMENT' || ord.status === 'PAID_MARKED') ? `<button id="btnDisputeOrd" class="btn btn-rose" type="button">Open Dispute</button>` : ''}
+              </div>
+              ${ord.status === 'RELEASED' && !ord.myRatingScore ? `
+                <form id="rateForm" style="display: flex; gap: 8px; align-items: center;">
+                  <select id="rateScore" style="width: 90px;"><option value="5">5 ★</option><option value="4">4 ★</option><option value="3">3 ★</option><option value="2">2 ★</option><option value="1">1 ★</option></select>
+                  <input id="rateComment" placeholder="Comment" />
+                  <button class="btn btn-primary" type="submit">Rate</button>
+                </form>
+              ` : ''}
+            </div>
+          `;
+          root.querySelectorAll('[data-sel-ord]').forEach((b) => {
+            b.onclick = () => { state.selectedOrderId = Number(b.dataset.selOrd); render(); };
+          });
+          updateOrderTimerDisplay(ord);
+          hydratePrivateImages();
+
+          const poForm = document.getElementById('payoutDetailsForm');
+          if (poForm) poForm.onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+              const f = document.getElementById('poFile').files[0];
+              await api(`/api/orders/${ord.id}/payout-details`, {
+                method: 'POST',
+                body: {
+                  payoutProvider: document.getElementById('poProv').value,
+                  payoutAccountId: document.getElementById('poId').value,
+                  payoutAccountName: document.getElementById('poName').value,
+                  payoutProfileBase64: await fileToDataUrl(f),
+                },
+              });
+              showMsg('Payout details saved.');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+
+          const mpForm = document.getElementById('markPaidForm');
+          if (mpForm) mpForm.onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+              const f = document.getElementById('mpFile').files[0];
+              await api(`/api/orders/${ord.id}/mark-paid`, {
+                method: 'POST',
+                body: { paymentRef: document.getElementById('mpRef').value, paymentProofBase64: await fileToDataUrl(f) },
+              });
+              showMsg('Marked paid! Admin group alerted.');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+
+          const cancelBtn = document.getElementById('btnCancelOrd');
+          if (cancelBtn) cancelBtn.onclick = async () => {
+            try {
+              await api(`/api/orders/${ord.id}/cancel`, { method: 'POST', body: { reason: 'Cancelled in Mini App' } });
+              showMsg('Order cancelled.');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+
+          const dispBtn = document.getElementById('btnDisputeOrd');
+          if (dispBtn) dispBtn.onclick = async () => {
+            const reason = prompt('Dispute reason:');
+            if (!reason) return;
+            try {
+              await api(`/api/orders/${ord.id}/dispute`, { method: 'POST', body: { reason } });
+              showMsg('Dispute opened; order frozen.');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+
+          const rateForm = document.getElementById('rateForm');
+          if (rateForm) rateForm.onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+              await api(`/api/orders/${ord.id}/rate`, {
+                method: 'POST',
+                body: { score: Number(document.getElementById('rateScore').value), comment: document.getElementById('rateComment').value },
+              });
+              showMsg('Rating saved!');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+          return;
+        }
+
+        if (state.tab === 'profile') {
+          root.innerHTML = `
+            <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="row">
+                <div><strong>${esc(me.firstName)} ${esc(me.lastName)}</strong><div class="muted mono">TG: ${esc(me.telegramId)}</div></div>
+                <strong>KYC: ${esc(me.kycStatus)}</strong>
+              </div>
+              <div class="muted">Phone: ${me.phoneVerified ? esc(me.phoneNumber) : 'Not verified — press /start in Telegram bot'}</div>
+              ${state.latestKyc?.rejection_reason ? `<div class="alert-err">Rejected: ${esc(state.latestKyc.rejection_reason)}</div>` : ''}
+              ${state.config?.botUsername ? `<a href="https://t.me/${esc(state.config.botUsername)}?start=kyc" target="_blank" style="font-size: 12px; font-weight: 600;">Open @${esc(state.config.botUsername)} Bot (/start)</a>` : ''}
+            </div>
+            ${!me.phoneVerified && state.config?.devPreviewEnabled ? `
+              <div class="card"><button id="devPhoneBtn" class="btn btn-amber" type="button">Dev Preview: Simulate Contact Share (+251911223344)</button></div>
+            ` : ''}
+            ${me.phoneVerified && (me.kycStatus === 'NONE' || me.kycStatus === 'REJECTED') ? `
+              <form id="kycForm" class="card" style="display: flex; flex-direction: column; gap: 10px;">
+                <strong style="font-size: 13px;">Submit / Resubmit KYC</strong>
+                <div><label>Full Name</label><input id="kycFullName" required /></div>
+                <div><label>National ID Number</label><input id="kycIdNo" required /></div>
+                <div><label>ID Front Photo</label><input id="kycFront" type="file" required accept="image/png,image/jpeg,image/webp" /></div>
+                <div><label>Selfie Holding ID</label><input id="kycSelfie" type="file" required accept="image/png,image/jpeg,image/webp" /></div>
+                <button class="btn btn-primary" type="submit">Submit KYC</button>
+              </form>
+            ` : ''}
+          `;
+          const devBtn = document.getElementById('devPhoneBtn');
+          if (devBtn) devBtn.onclick = async () => {
+            try {
+              await api('/api/kyc/verify-phone-dev', { method: 'POST', body: { phoneNumber: '+251911223344' } });
+              showMsg('Phone verified.');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+          const kycForm = document.getElementById('kycForm');
+          if (kycForm) kycForm.onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+              const f1 = document.getElementById('kycFront').files[0];
+              const f2 = document.getElementById('kycSelfie').files[0];
+              await api('/api/kyc/submit', {
+                method: 'POST',
+                body: {
+                  fullName: document.getElementById('kycFullName').value,
+                  nationalIdNumber: document.getElementById('kycIdNo').value,
+                  idFrontBase64: await fileToDataUrl(f1),
+                  selfieBase64: await fileToDataUrl(f2),
+                },
+              });
+              showMsg('KYC submitted (PENDING admin review).');
+              await bootAndRefresh();
+            } catch (err) { showMsg(err.message, true); }
+          };
+        }
+      }
+
+      function updateOrderTimerDisplay(ord) {
+        const el = document.getElementById('ordTimer');
+        if (!el || (ord.status !== 'CREATED' && ord.status !== 'AWAITING_PAYMENT')) return;
+        const serverNow = Date.now() + state.serverOffsetMs;
+        const sec = Math.max(0, Math.floor((new Date(ord.expiresAt).getTime() - serverNow) / 1000));
+        el.textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+      }
+      setInterval(() => {
+        if (state.tab === 'orders') {
+          const ord = state.orders.find((o) => o.id === state.selectedOrderId) || state.orders[0];
+          if (ord) updateOrderTimerDisplay(ord);
+        }
+      }, 1000);
+
+      function openTradeModal(ad) {
+        if (!ad) return;
+        state.tradeAd = ad;
+        document.getElementById('tradeTitle').textContent = `${ad.direction === 'SELL' ? 'Buy' : 'Sell'} USDT @ ${ad.priceEtb} ETB`;
+        const body = document.getElementById('tradeBody');
+        body.innerHTML = `
+          <div><label>USDT Amount (${esc(ad.minOrderUsdt)}–${esc(ad.maxOrderUsdt)})</label><input id="trAmt" value="${esc(ad.minOrderUsdt)}" /></div>
+          <div><label>Payment Method</label><select id="trPm">${ad.paymentMethods.map((m) => `<option>${esc(m)}</option>`).join('')}</select></div>
+          <div><label>Network</label><select id="trNet"><option value="TRC20">TRC20</option><option value="BEP20">BEP20</option></select></div>
+          <div id="trPreview" class="card mono" style="background: #f8fafc; font-size: 12px;"></div>
+          <button id="trSubmit" class="btn btn-primary" type="button">Start 15-Min Order</button>
+        `;
+        const updateTrPreview = () => {
+          const box = document.getElementById('trPreview');
+          try {
+            const c = P2PCalc.calculateOrder({
+              usdtInput: document.getElementById('trAmt').value,
+              priceSantim: BigInt(ad.priceSantim),
+              commissionPercent: state.config?.commissionPercent ?? 3,
+            });
+            box.innerHTML = `Gross: <strong>${c.grossUsdt} USDT</strong><br/>Fee (${c.commissionPercent}% seller): <strong>${c.feeUsdt} USDT</strong><br/>Net Payout: <strong style="color:#047857">${c.netUsdt} USDT</strong><br/>ETB Total: <strong>${c.etbTotal} ETB</strong>`;
+          } catch { box.textContent = 'Enter valid USDT amount'; }
+        };
+        document.getElementById('trAmt').oninput = updateTrPreview;
+        updateTrPreview();
+        document.getElementById('trSubmit').onclick = async () => {
+          try {
+            const res = await api('/api/orders', {
+              method: 'POST',
+              body: {
+                adId: ad.id,
+                usdtAmount: document.getElementById('trAmt').value,
+                paymentMethod: document.getElementById('trPm').value,
+                depositNetwork: document.getElementById('trNet').value,
+              },
+            });
+            document.getElementById('tradeModal').classList.add('hidden');
+            state.selectedOrderId = res.order.id;
+            switchTab('orders');
+            showMsg(`Order ${res.order.orderCode} created (15-min countdown started)`);
+            await bootAndRefresh();
+          } catch (err) { showMsg(err.message, true); }
+        };
+        document.getElementById('tradeModal').classList.remove('hidden');
+      }
+
+      function switchTab(next) {
+        state.tab = next;
+        document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === next));
+        render();
+      }
+
+      document.querySelectorAll('.nav-btn').forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
+      document.getElementById('btnRefresh').onclick = bootAndRefresh;
+      document.getElementById('btnServerCfg').onclick = () => {
+        document.getElementById('apiUrlInput').value = state.apiBase;
+        document.getElementById('serverModal').classList.remove('hidden');
+      };
+      document.getElementById('closeServerModal').onclick = () => document.getElementById('serverModal').classList.add('hidden');
+      document.getElementById('saveServerUrl').onclick = () => {
+        const val = document.getElementById('apiUrlInput').value.trim().replace(/\/$/, '');
+        if (val) localStorage.setItem(STORAGE_API, val); else localStorage.removeItem(STORAGE_API);
+        state.apiBase = val;
+        document.getElementById('serverModal').classList.add('hidden');
+        bootAndRefresh();
+      };
+      document.getElementById('closeTradeModal').onclick = () => document.getElementById('tradeModal').classList.add('hidden');
+      document.getElementById('devUserSelect').onchange = async (e) => {
+        localStorage.setItem('ethiop2p_gh_dev_tg', e.target.value);
+        const minted = await api('/api/dev/mint-init-data', { method: 'POST', body: { telegramId: e.target.value } });
+        state.initData = minted.initData;
+        await bootAndRefresh();
+      };
+
+      bootAndRefresh();
+    </script>
+  </body>
+</html>

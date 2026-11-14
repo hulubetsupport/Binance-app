@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: ethiop2p-marketplace-api
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: node server.ts
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COMMISSION_PERCENT
+        value: "3"
+      - key: REFERENCE_RATE_ETB
+        value: "155.00"
+      - key: DAILY_LIMIT_USDT
+        value: "500"
+      - key: MAX_DISPUTES_BEFORE_SUSPEND
+        value: "2"
+      - key: ALLOW_DEV_PREVIEW
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ethiop2p-db
+          property: connectionString
+      - key: BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
+      - key: ADMIN_GROUP_ID
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: MINI_APP_ORIGIN
+        sync: false
+      - key: DEPOSIT_ADDRESS_TRC20
+        sync: false
+      - key: DEPOSIT_ADDRESS_BEP20
+        sync: false
+
+databases:
+  - name: ethiop2p-db
+    plan: basic-256mb

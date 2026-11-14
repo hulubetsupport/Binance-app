@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EthioP2P Admin Console · GitHub Pages</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      .mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+      header {
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 12px 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      main { max-width: 1100px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+      .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; }
+      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+      .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+      .btn {
+        border: 1px solid #cbd5e1; background: #fff; color: #0f172a;
+        padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+      }
+      .btn-dark { background: #0f172a; color: #fff; border-color: #0f172a; }
+      .btn-emerald { background: #059669; color: #fff; border-color: #059669; }
+      .btn-rose { background: #e11d48; color: #fff; border-color: #e11d48; }
+      input, select {
+        padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px;
+      }
+      .hidden { display: none !important; }
+      .priv-img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; }
+      .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #f1f5f9; }
+      th { color: #64748b; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <strong style="font-size: 15px;">EthioP2P Admin Console</strong>
+        <div id="subInfo" class="mono" style="font-size: 11px; color: #64748b;">Not signed in</div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+        <input id="apiInput" type="url" placeholder="Backend API URL (optional)" style="width: 210px;" />
+        <input id="keyInput" type="password" placeholder="ADMIN_API_KEY" style="width: 150px;" />
+        <button id="btnSignIn" class="btn btn-dark" type="button">Connect</button>
+        <button id="btnDevAdmin" class="btn hidden" type="button">Dev Admin (100001)</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="msgBox" class="hidden"></div>
+      <div id="kpiBox" class="kpis hidden"></div>
+
+      <div id="navTabs" class="tabs hidden">
+        <button class="btn btn-dark" data-sec="kyc" type="button">KYC Queue</button>
+        <button class="btn" data-sec="orders" type="button">Orders & Payouts</button>
+        <button class="btn" data-sec="deposits" type="button">Deposit Matching</button>
+        <button class="btn" data-sec="disputes" type="button">Disputes</button>
+        <button class="btn" data-sec="users" type="button">Users</button>
+        <button class="btn" data-sec="settings" type="button">Settings & Audit</button>
+      </div>
+
+      <div id="contentRoot" class="card" style="font-size: 13px; color: #64748b;">
+        Enter your Render backend URL (or leave empty for same-origin) and authenticate via Telegram WebApp (`ADMIN_IDS`), `/admin` token link, or `ADMIN_API_KEY`.
+      </div>
+    </main>
+
+    <script type="module">
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashTokenMatch = /token=([^&]+)/.exec(window.location.hash || '');
+
+      const state = {
+        apiBase: (urlParams.get('api') || localStorage.getItem('ethiop2p_gh_api_base') || '').replace(/\/$/, ''),
+        initData: window.Telegram?.WebApp?.initData || '',
+        adminToken: hashTokenMatch ? decodeURIComponent(hashTokenMatch[1]) : '',
+        adminKey: localStorage.getItem('ethiop2p_gh_admin_key') || '',
+        sec: 'kyc',
+        overview: null,
+        kyc: [],
+        orders: [],
+        deposits: [],
+        disputes: [],
+        users: [],
+        auditLogs: [],
+        commissions: [],
+      };
+
+      document.getElementById('apiInput').value = state.apiBase;
+      document.getElementById('keyInput').value = state.adminKey;
+
+      const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+      function msg(text, isErr = false) {
+        const box = document.getElementById('msgBox');
+        if (!text) { box.className = 'hidden'; return; }
+        box.className = 'card';
+        box.style.background = isErr ? '#fff1f2' : '#ecfdf5';
+        box.style.borderColor = isErr ? '#fecdd3' : '#a7f3d0';
+        box.style.color = isErr ? '#9f1239' : '#065f46';
+        box.style.fontSize = '12px';
+        box.textContent = text;
+      }
+
+      function authHeaders() {
+        const h = {};
+        if (state.initData) h['X-Telegram-Init-Data'] = state.initData;
+        if (state.adminToken) h['X-Admin-Token'] = state.adminToken;
+        if (state.adminKey) h['X-Admin-Key'] = state.adminKey;
+        return h;
+      }
+
+      async function api(path, opts = {}) {
+        const headers = authHeaders();
+        let body;
+        if (opts.body !== undefined) {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify(opts.body);
+        }
+        const resp = await fetch(`${state.apiBase}${path}`, { method: opts.method || 'GET', headers, body });
+        const json = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+        return json;
+      }
+
+      function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result || ''));
+          r.onerror = () => reject(new Error('File read error'));
+          r.readAsDataURL(file);
+        });
+      }
+
+      async function hydrateImages() {
+        for (const img of document.querySelectorAll('img[data-priv-file]')) {
+          const fid = img.getAttribute('data-priv-file');
+          if (!fid || img.dataset.loaded) continue;
+          img.dataset.loaded = '1';
+          try {
+            const resp = await fetch(`${state.apiBase}/api/files/${encodeURIComponent(fid)}`, { headers: authHeaders() });
+            if (resp.ok) img.src = URL.createObjectURL(await resp.blob());
+          } catch {}
+        }
+      }
+
+      async function loadAll() {
+        msg('');
+        try {
+          const cfg = await fetch(`${state.apiBase}/api/config`).then((r) => r.json()).catch(() => ({}));
+          if (cfg.devPreviewEnabled) document.getElementById('btnDevAdmin').classList.remove('hidden');
+
+          if (!state.initData && !state.adminToken && !state.adminKey) return;
+
+          const ov = await api('/api/admin/overview');
+          state.overview = ov;
+          document.getElementById('subInfo').textContent = `Actor: ${ov.adminActorId} · Ref: ${ov.settings.referenceRateEtb} ETB · Fee: ${ov.settings.commissionPercent}%`;
+
+          const [kRes, oRes, dRes, dispRes, uRes, aRes] = await Promise.all([
+            api('/api/admin/kyc?status=ALL'),
+            api('/api/admin/orders?status=ALL'),
+            api('/api/admin/deposits'),
+            api('/api/admin/disputes'),
+            api('/api/admin/users'),
+            api('/api/admin/audit-log'),
+          ]);
+          state.kyc = kRes.submissions || [];
+          state.orders = oRes.orders || [];
+          state.deposits = dRes.deposits || [];
+          state.disputes = dispRes.disputes || [];
+          state.users = uRes.users || [];
+          state.auditLogs = aRes.auditLogs || [];
+          state.commissions = aRes.commissions || [];
+          render();
+        } catch (err) {
+          msg(err.message || 'Authentication failed', true);
+        }
+      }
+
+      function render() {
+        const ov = state.overview;
+        if (!ov) return;
+
+        const kpiBox = document.getElementById('kpiBox');
+        kpiBox.classList.remove('hidden');
+        document.getElementById('navTabs').classList.remove('hidden');
+        kpiBox.innerHTML = `
+          <div class="card"><div style="font-size:11px;color:#64748b">Pending KYC</div><strong class="mono" style="font-size:20px">${ov.kpis.pendingKyc}</strong></div>
+          <div class="card"><div style="font-size:11px;color:#64748b">Pending Payouts</div><strong class="mono" style="font-size:20px;color:#b45309">${ov.kpis.pendingPayouts}</strong></div>
+          <div class="card"><div style="font-size:11px;color:#64748b">Pending Deposits</div><strong class="mono" style="font-size:20px">${ov.kpis.pendingDeposits}</strong></div>
+          <div class="card"><div style="font-size:11px;color:#64748b">Open Disputes</div><strong class="mono" style="font-size:20px;color:#be123c">${ov.kpis.openDisputes}</strong></div>
+          <div class="card"><div style="font-size:11px;color:#64748b">Commissions Earned</div><strong class="mono" style="font-size:20px;color:#047857">${ov.kpis.totalCommissionUsdt} USDT</strong></div>
+        `;
+
+        const root = document.getElementById('contentRoot');
+        root.className = '';
+        root.style = 'display:flex;flex-direction:column;gap:12px;';
+
+        if (state.sec === 'kyc') {
+          root.innerHTML = state.kyc.length === 0 ? '<div class="card">No KYC submissions.</div>' : state.kyc.map((k) => `
+            <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;">
+                <div><strong>${esc(k.full_name)}</strong> <span class="mono" style="font-size:11px;color:#64748b">KYC #${k.id} · ID: ${esc(k.national_id_number)} · Phone: ${esc(k.phone_number)}</span></div>
+                <strong>${esc(k.status)}</strong>
+              </div>
+              <div class="grid2">
+                <div><div style="font-size:11px;color:#64748b;margin-bottom:4px">ID Front</div><img class="priv-img" data-priv-file="${esc(k.id_front_file_id)}" /></div>
+                <div><div style="font-size:11px;color:#64748b;margin-bottom:4px">Selfie Holding ID</div><img class="priv-img" data-priv-file="${esc(k.selfie_file_id)}" /></div>
+              </div>
+              ${k.status === 'PENDING' ? `
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                  <button class="btn btn-emerald" data-kyc-approve="${k.id}" type="button">Approve KYC</button>
+                  <input id="rej_${k.id}" placeholder="Reject reason" style="flex:1;min-width:180px;" />
+                  <button class="btn btn-rose" data-kyc-reject="${k.id}" type="button">Reject</button>
+                </div>
+              ` : ''}
+            </div>
+          `).join('');
+          hydrateImages();
+          root.querySelectorAll('[data-kyc-approve]').forEach((b) => {
+            b.onclick = async () => {
+              try {
+                await api(`/api/admin/kyc/${b.dataset.kycApprove}/review`, { method: 'POST', body: { decision: 'APPROVED' } });
+                msg(`KYC #${b.dataset.kycApprove} APPROVED`);
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          root.querySelectorAll('[data-kyc-reject]').forEach((b) => {
+            b.onclick = async () => {
+              const reason = document.getElementById(`rej_${b.dataset.kycReject}`).value;
+              try {
+                await api(`/api/admin/kyc/${b.dataset.kycReject}/review`, { method: 'POST', body: { decision: 'REJECTED', reason } });
+                msg(`KYC #${b.dataset.kycReject} REJECTED`);
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          return;
+        }
+
+        if (state.sec === 'orders') {
+          root.innerHTML = state.orders.length === 0 ? '<div class="card">No orders yet.</div>' : state.orders.map((o) => `
+            <div class="card" style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;justify-content:space-between;">
+                <div><strong class="mono">${esc(o.orderCode)}</strong> · ${esc(o.direction)} · ${esc(o.grossUsdt)} USDT (Net ${esc(o.netUsdt)} / Fee ${esc(o.feeUsdt)}) · ${esc(o.etbTotal)} ETB</div>
+                <strong>${esc(o.status)}</strong>
+              </div>
+              <div style="font-size:12px;color:#475569">Payout Target: ${esc(o.payoutProvider || '-')} ${esc(o.payoutAccountId || '-')} (${esc(o.payoutAccountName || '-')}) · Payment Ref: ${esc(o.paymentRef || '-')}</div>
+              <div class="grid2">
+                ${o.paymentProofFileId ? `<div><div style="font-size:11px;color:#64748b">ETB Payment Proof</div><img class="priv-img" data-priv-file="${esc(o.paymentProofFileId)}" /></div>` : ''}
+                ${o.payoutProfileFileId ? `<div><div style="font-size:11px;color:#64748b">Receiver Profile</div><img class="priv-img" data-priv-file="${esc(o.payoutProfileFileId)}" /></div>` : ''}
+                ${o.payoutProofFileId ? `<div><div style="font-size:11px;color:#64748b">Admin Payout Proof</div><img class="priv-img" data-priv-file="${esc(o.payoutProofFileId)}" /></div>` : ''}
+              </div>
+              ${(o.status === 'PAID_MARKED' || o.status === 'DISPUTED') ? `
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid #f1f5f9;padding-top:8px;">
+                  ${!o.paymentConfirmedByAdmin ? `<button class="btn btn-dark" data-ord-confirm="${o.id}" type="button">Confirm Payment</button>` : ''}
+                  <input id="pref_${o.id}" placeholder="Payout Ref" />
+                  <input id="pfile_${o.id}" type="file" accept="image/png,image/jpeg,image/webp" />
+                  <button class="btn btn-emerald" data-ord-release="${o.id}" type="button">Paid Out → RELEASED</button>
+                </div>
+              ` : ''}
+            </div>
+          `).join('');
+          hydrateImages();
+          root.querySelectorAll('[data-ord-confirm]').forEach((b) => {
+            b.onclick = async () => {
+              try {
+                await api(`/api/admin/orders/${b.dataset.ordConfirm}/confirm-payment`, { method: 'POST' });
+                msg('Payment confirmed');
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          root.querySelectorAll('[data-ord-release]').forEach((b) => {
+            b.onclick = async () => {
+              const oid = b.dataset.ordRelease;
+              const f = document.getElementById(`pfile_${oid}`).files[0];
+              if (!f) return msg('Attach payout proof screenshot first', true);
+              try {
+                await api(`/api/admin/orders/${oid}/paid-out`, {
+                  method: 'POST',
+                  body: { payoutRef: document.getElementById(`pref_${oid}`).value || `PAYOUT_${oid}`, payoutProofBase64: await fileToDataUrl(f) },
+                });
+                msg(`Order #${oid} RELEASED`);
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          return;
+        }
+
+        if (state.sec === 'deposits') {
+          root.innerHTML = `<div class="card"><table><thead><tr><th>Intent</th><th>User</th><th>Net</th><th>Unique USDT</th><th>Status</th><th>Action</th></tr></thead><tbody>
+            ${state.deposits.map((d) => `
+              <tr>
+                <td class="mono">${esc(d.intent_code)}</td>
+                <td>${esc(d.first_name)} (${esc(d.telegram_id)})</td>
+                <td>${esc(d.network)}</td>
+                <td class="mono"><strong>${esc(d.uniqueUsdt)}</strong></td>
+                <td>${esc(d.status)}</td>
+                <td>${d.status === 'PENDING' ? `<input id="tx_${d.id}" placeholder="TxHash" style="width:130px" /> <button class="btn btn-emerald" data-match-dep="${d.id}" type="button">Match</button>` : `<span class="mono">${esc(d.tx_hash || '')}</span>`}</td>
+              </tr>
+            `).join('')}
+          </tbody></table></div>`;
+          root.querySelectorAll('[data-match-dep]').forEach((b) => {
+            b.onclick = async () => {
+              const did = Number(b.dataset.matchDep);
+              const txHash = document.getElementById(`tx_${did}`).value.trim();
+              try {
+                await api('/api/admin/deposits/match', { method: 'POST', body: { intentId: did, txHash } });
+                msg(`Deposit #${did} matched`);
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          return;
+        }
+
+        if (state.sec === 'disputes') {
+          root.innerHTML = state.disputes.length === 0 ? '<div class="card">No disputes.</div>' : state.disputes.map((d) => `
+            <div class="card" style="display:flex;flex-direction:column;gap:8px;">
+              <div><strong>Dispute #${d.id}</strong> · <span class="mono">${esc(d.order_code)}</span> · <strong>${esc(d.status)}</strong></div>
+              <div style="font-size:12px;">Reason: ${esc(d.reason)}</div>
+              ${d.status === 'OPEN' ? `
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <input id="dnote_${d.id}" placeholder="Resolution note" />
+                  <input id="dfile_${d.id}" type="file" accept="image/png,image/jpeg,image/webp" />
+                  <button class="btn btn-emerald" data-disp-rel="${d.id}" type="button">Release</button>
+                  <button class="btn btn-rose" data-disp-ref="${d.id}" type="button">Refund Seller</button>
+                </div>
+              ` : ''}
+            </div>
+          `).join('');
+          root.querySelectorAll('[data-disp-rel]').forEach((b) => {
+            b.onclick = async () => {
+              const id = b.dataset.dispRel;
+              const f = document.getElementById(`dfile_${id}`).files[0];
+              if (!f) return msg('Attach payout proof to release', true);
+              try {
+                await api(`/api/admin/disputes/${id}/resolve`, {
+                  method: 'POST',
+                  body: { resolution: 'RESOLVED_RELEASE', note: document.getElementById(`dnote_${id}`).value || 'Released', payoutProofBase64: await fileToDataUrl(f) },
+                });
+                msg(`Dispute #${id} released`);
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          root.querySelectorAll('[data-disp-ref]').forEach((b) => {
+            b.onclick = async () => {
+              const id = b.dataset.dispRef;
+              try {
+                await api(`/api/admin/disputes/${id}/resolve`, {
+                  method: 'POST',
+                  body: { resolution: 'RESOLVED_REFUND', note: document.getElementById(`dnote_${id}`).value || 'Refunded' },
+                });
+                msg(`Dispute #${id} refunded`);
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          return;
+        }
+
+        if (state.sec === 'users') {
+          root.innerHTML = `<div class="card"><table><thead><tr><th>User</th><th>KYC</th><th>Avail</th><th>Locked</th><th>Losses</th><th>Status</th></tr></thead><tbody>
+            ${state.users.map((u) => `
+              <tr>
+                <td>${esc(u.first_name)} ${esc(u.last_name)} (${esc(u.telegram_id)})</td>
+                <td>${esc(u.kyc_status)}</td>
+                <td class="mono">${esc(u.availableUsdt)}</td>
+                <td class="mono">${esc(u.lockedUsdt)}</td>
+                <td class="mono">${esc(u.dispute_losses)}</td>
+                <td>${u.is_suspended ? `<button class="btn btn-dark" data-unsusp="${u.id}" type="button">Unsuspend</button>` : 'ACTIVE'}</td>
+              </tr>
+            `).join('')}
+          </tbody></table></div>`;
+          root.querySelectorAll('[data-unsusp]').forEach((b) => {
+            b.onclick = async () => {
+              try {
+                await api(`/api/admin/users/${b.dataset.unsusp}/unsuspend`, { method: 'POST' });
+                msg('User unsuspended');
+                await loadAll();
+              } catch (err) { msg(err.message, true); }
+            };
+          });
+          return;
+        }
+
+        if (state.sec === 'settings') {
+          root.innerHTML = `
+            <form id="setForm" class="card" style="display:flex;flex-direction:column;gap:10px;">
+              <strong>Marketplace Settings</strong>
+              <div class="grid2">
+                <div><label style="font-size:11px;display:block">Ref Rate (ETB/USDT)</label><input id="sRate" value="${esc(ov.settings.referenceRateEtb)}" /></div>
+                <div><label style="font-size:11px;display:block">Commission %</label><input id="sComm" type="number" value="${esc(ov.settings.commissionPercent)}" /></div>
+                <div><label style="font-size:11px;display:block">Daily Limit (USDT)</label><input id="sLim" value="${esc(ov.settings.dailyLimitUsdt)}" /></div>
+                <div><label style="font-size:11px;display:block">Max Disputes Suspend</label><input id="sMaxD" type="number" value="${esc(ov.settings.maxDisputesBeforeSuspend)}" /></div>
+              </div>
+              <button class="btn btn-dark" type="submit" style="width:fit-content">Save Settings</button>
+            </form>
+            <div class="card">
+              <strong>Recorded Commissions (${state.commissions.length})</strong>
+              <div style="margin-top:8px;">${state.commissions.map((c) => `<div class="mono" style="font-size:12px">${esc(c.order_code)} · Gross ${esc(c.grossUsdt)} · Fee ${esc(c.feeUsdt)} USDT</div>`).join('') || '<span class="muted">None yet</span>'}</div>
+            </div>
+            <div class="card">
+              <strong>Audit Log (${state.auditLogs.length})</strong>
+              <div style="margin-top:8px;max-height:260px;overflow-y:auto;">${state.auditLogs.map((l) => `<div class="mono" style="font-size:11px;padding:4px 0;border-bottom:1px solid #f1f5f9">${esc(l.action)} · ${esc(l.actor_type)}:${esc(l.actor_id)} → ${esc(l.target_type)}#${esc(l.target_id)}</div>`).join('')}</div>
+            </div>
+          `;
+          document.getElementById('setForm').onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+              await api('/api/admin/settings', {
+                method: 'POST',
+                body: {
+                  referenceRateEtb: document.getElementById('sRate').value,
+                  commissionPercent: Number(document.getElementById('sComm').value),
+                  dailyLimitUsdt: document.getElementById('sLim').value,
+                  maxDisputesBeforeSuspend: Number(document.getElementById('sMaxD').value),
+                },
+              });
+              msg('Settings saved');
+              await loadAll();
+            } catch (err) { msg(err.message, true); }
+          };
+        }
+      }
+
+      document.querySelectorAll('[data-sec]').forEach((b) => {
+        b.onclick = () => {
+          state.sec = b.dataset.sec;
+          document.querySelectorAll('[data-sec]').forEach((x) => x.classList.toggle('btn-dark', x === b));
+          render();
+        };
+      });
+
+      document.getElementById('btnSignIn').onclick = () => {
+        state.apiBase = document.getElementById('apiInput').value.trim().replace(/\/$/, '');
+        state.adminKey = document.getElementById('keyInput').value.trim();
+        if (state.apiBase) localStorage.setItem('ethiop2p_gh_api_base', state.apiBase);
+        if (state.adminKey) localStorage.setItem('ethiop2p_gh_admin_key', state.adminKey);
+        loadAll();
+      };
+
+      document.getElementById('btnDevAdmin').onclick = async () => {
+        try {
+          const res = await fetch(`${state.apiBase}/api/dev/mint-init-data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegramId: '100001' }),
+          }).then((r) => r.json());
+          state.initData = res.initData;
+          await loadAll();
+        } catch (err) { msg(err.message, true); }
+      };
+
+      loadAll();
+    </script>
+  </body>
+</html>

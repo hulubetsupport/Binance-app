@@ -1,0 +1,6 @@
+{
+  "name": "EthioP2P USDT Marketplace",
+  "description": "Telegram Mini App P2P USDT & ETB Escrow Marketplace with KYC, grammY Bot, 15-Minute Order Timer, and Admin Console.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
